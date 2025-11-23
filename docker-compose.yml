@@ -2,74 +2,8 @@ version: '3.8'
 
 services:
 
-  # 1. THE POSTGRESQL DATABASE SERVICE
-  db:
-    image: postgres:16-alpine # Use a stable, lightweight Postgres image
-    container_name: central-db
-
-    # Environment variables to configure the Postgres server
-    environment:
-      POSTGRES_DB: central
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password123
-
-    networks:
-      - central
-
-    # Map the default Postgres port to prevent conflicts if you have local Postgres running
-    # You will access this from the host machine via localhost:5432
-    ports:
-      - "5432:5432"
-
-    # Data Persistence: Store the database data in a named volume
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  # 2. THE KAFKA SERVICE
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.1
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - central
-
-  kafka:
-    image: confluentinc/cp-kafka:7.4.1
-    ports:
-      - "9092:9092"
-    environment:
-        KAFKA_BROKER_ID: 1
-        KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
-        # 1. CLASSIC LISTENERS (Bind to 0.0.0.0 internally)
-        # We combine the PLAINTEXT and EXTERNAL listeners here.
-        # KAFKA_LISTENERS is often the source of the crash, let's simplify it.
-        KAFKA_LISTENERS: PLAINTEXT://:9092,EXTERNAL://:9094
-
-        # 2. ADVERTISED LISTENERS (How clients connect)
-        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-
-        # 3. CRITICAL: MAP ALL LISTENERS TO PROTOCOL
-        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-
-        # 4. KRaft/Controller settings (Keep these, as they use KAFKA_CFG)
-        KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-        KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
-        KAFKA_CFG_NODE_ID: 0
-        KAFKA_CFG_PROCESS_ROLES: controller,broker
-
-    depends_on:
-      - zookeeper
-    networks:
-      - central
-
-
   # 3. YOUR SPRING BOOT APPLICATION SERVICE
-  app:
+  transaction_service:
     # Instruct Docker Compose to build the image using the current directory's Dockerfile
     build:
       context: .
@@ -93,21 +27,13 @@ services:
       TRANSACTION_SERVICE_GRPC_PORT: 9005
       # Note: The database hostname is 'db' because that is the service name below
 
-    # Ensure the database starts before the application
-    depends_on:
-      - db
-      - kafka
     networks:
-      - central
-
-
-
-# Define the volume used for data persistence
-volumes:
-  postgres_data:
+      - shared_network_alias
 
 # --- CUSTOM NETWORK DEFINITION ---
 networks:
-  central:
-    # This creates a bridge network named 'central'
-    driver: bridge
+  shared_network_alias:
+    # Use the name of the network created in the other file
+    name: shared_central_network
+    # CRITICAL: Tell Docker Compose this network is managed externally
+    external: true

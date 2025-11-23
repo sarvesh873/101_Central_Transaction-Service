@@ -1,5 +1,6 @@
 package com.central.transaction_service.service;
 
+import com.central.transaction_service.kafka.KafkaEventProducer;
 import com.central.transaction_service.model.Transaction;
 import com.central.transaction_service.repository.TransactionRepository;
 import jakarta.transaction.Transactional;
@@ -26,6 +27,9 @@ public class TransactionServiceImpl implements  TransactionService {
     @Autowired
     private TransactionRepository transactionRepository;
 
+    @Autowired
+    private KafkaEventProducer kafkaEventProducer;
+
     @Override
     public ResponseEntity<TransactionResponse> createTransaction(TransactionRequest transactionRequest) {
         Transaction transaction = Transaction.builder()
@@ -36,6 +40,18 @@ public class TransactionServiceImpl implements  TransactionService {
                 .status("SUCCESS")
                 .build();
         transactionRepository.save(transaction);
+        log.info("Transaction created successfully with Transaction ID : {}", transaction.getTransaction_id());
+
+        try{
+            kafkaEventProducer.sendTransactionEvent(transaction.getTransaction_id().toString(), transaction);
+            log.info("Transaction event sent successfully with Transaction ID : {}", transaction.getTransaction_id());
+        }
+        catch (Exception e){
+            log.error("Failed to create transaction: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(constructTransactionResponse(transaction));
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(constructTransactionResponse(transaction));
     }
