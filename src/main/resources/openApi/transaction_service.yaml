@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: Central Transaction Service API
+  version: 1.0.0
+  description: API for logging and managing user activity transactions
+servers:
+  - url: http://localhost:8080/transaction_service/api # The base path is added here
+paths:
+  /transactions:
+    # 1. POST /transactions (Create a new transaction)
+    post:
+      summary: Create a new transaction
+      operationId: createTransaction
+      tags:
+        - Transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '201':
+          description: Transaction created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid request data
+
+  /transactions/user:
+    # 2. GET /transactions/user (Get all transactions for a user)
+    get:
+      summary: Get all transactions for a user
+      operationId: getUserTransactions
+      tags:
+        - Transactions
+      parameters:
+        - in: header
+          name: userCode
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionResponse'
+
+  /transactions/{transactionId}:
+    # 3. GET /transactions/{transactionId} (Get a specific transaction by ID)
+    get:
+      summary: Get details of a specific transaction
+      operationId: getTransactionDetails
+      tags:
+        - Transactions
+      parameters:
+        - in: path
+          name: transactionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Transaction not found
+
+    # 4. PUT /transactions/{transactionId} (Update transaction status)
+    put:
+      summary: Update transaction status
+      operationId: updateTransactionStatus
+      tags:
+        - Transactions
+      parameters:
+        - in: path
+          name: transactionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdateRequest'
+      responses:
+        '200':
+          description: Transaction updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Transaction not found
+
+  /transactions/{transactionId}/status:
+    # 5. GET /transactions/{transactionId}/status (Get status of a transaction)
+    get:
+      summary: Get status of a transaction
+      operationId: getTransactionStatus
+      tags:
+        - Transactions
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Transaction status response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+components:
+  schemas:
+    TransactionRequest:
+      type: object
+      required:
+        - senderId
+        - receiverId
+        - amount
+      properties:
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        amount:
+          type: number
+          format: double
+        description:
+          type: string
+          description: A human-readable description or note.
+
+    TransactionResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+          description: The unique identifier for the transaction.
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        amount:
+          type: number
+          format: double
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - PENDING
+            - SUCCESS
+            - FAILED
+        createdAt:
+          type: string
+          format: date-time
+          x-java-type: java.time.LocalDateTime
+          description: The timestamp when the transaction was created.
+        updatedAt:
+          type: string
+          format: date-time
+          x-java-type: java.time.LocalDateTime
+          description: The timestamp when the transaction was updated.
+
+    StatusResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: ["PENDING", "SUCCESS", "FAILED"]
+
+    StatusUpdateRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: ["PENDING", "SUCCESS", "FAILED"]
