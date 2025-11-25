@@ -1,6 +1,7 @@
 package com.central.transaction_service.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +30,7 @@ public class Transaction {
     private String receiverId;
 
     @Column(name = "amount", nullable = false)
+    @Positive(message = "Amount must be positive")
     private Double amount;
 
     @Column(name = "description", nullable = true)

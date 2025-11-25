@@ -18,17 +18,26 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 public class KafkaEventProducer {
-    private static final String TOPIC = "txn-initiated";
+    private static final String SENDER_TOPIC = "txn-sender-events";
+    private static final String RECEIVER_TOPIC = "txn-receiver-events";
 
-    private final KafkaTemplate<String,  byte[]> kafkaTemplate;
+    private final KafkaTemplate<String, byte[]> kafkaTemplate;
 
     @Autowired
     public KafkaEventProducer(KafkaTemplate<String,  byte[]> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public void sendTransactionEvent(String key, Transaction transaction) {
-        log.info("📤 Sending to Kafka → Topic: {}, Key: {}, Message: {}", TOPIC, key, transaction);
+    public void sendSenderTransactionEvent(String key, Transaction transaction) {
+        sendToTopic(SENDER_TOPIC, key, transaction, "sender");
+    }
+
+    public void sendReceiverTransactionEvent(String key, Transaction transaction) {
+        sendToTopic(RECEIVER_TOPIC, key, transaction, "receiver");
+    }
+
+    private void sendToTopic(String topic, String key, Transaction transaction, String eventType) {
+        log.info("Sending {} event to Kafka → Topic: {}, Key: {}, Message: {}", eventType, topic, key, transaction);
 
         TransactionEvent transactionEvent = TransactionEvent.newBuilder()
                 .setTransactionId(transaction.getTransaction_id().toString())
@@ -45,14 +54,15 @@ public class KafkaEventProducer {
                         .setNanos(0)
                         .build())
                 .build();
-        CompletableFuture<SendResult<String,  byte[]>> future = kafkaTemplate.send(TOPIC, key, transactionEvent.toByteArray());
+
+        CompletableFuture<SendResult<String, byte[]>> future = kafkaTemplate.send(topic, key, transactionEvent.toByteArray());
 
         future.thenAccept(result -> {
             RecordMetadata metadata = result.getRecordMetadata();
-            log.info("Kafka message sent successfully! Topic: {}, Partition: {}, Offset: {}", metadata.topic(), metadata.partition(), metadata.offset());
+            log.info("Kafka message sent successfully! Topic: {}, Partition: {}, Offset: {}", 
+                    metadata.topic(), metadata.partition(), metadata.offset());
         }).exceptionally(ex -> {
-            log.error("Failed to send Kafka message: {}", ex.getMessage(), ex);
-            ex.printStackTrace();
+            log.error("Failed to send Kafka message to topic {}: {}", topic, ex.getMessage(), ex);
             return null;
         });
     }

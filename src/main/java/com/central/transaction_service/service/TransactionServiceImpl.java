@@ -43,7 +43,7 @@ public class TransactionServiceImpl implements  TransactionService {
         log.info("Transaction created successfully with Transaction ID : {}", transaction.getTransaction_id());
 
         try{
-            kafkaEventProducer.sendTransactionEvent(transaction.getTransaction_id().toString(), transaction);
+            kafkaEventProducer.sendReceiverTransactionEvent(transaction.getTransaction_id().toString(), transaction);
             log.info("Transaction event sent successfully with Transaction ID : {}", transaction.getTransaction_id());
         }
         catch (Exception e){
