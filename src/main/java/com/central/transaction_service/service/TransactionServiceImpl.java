@@ -1,31 +1,27 @@
 package com.central.transaction_service.service;
 
+import com.central.transaction_service.exception.InvalidTransactionStatusException;
+import com.central.transaction_service.exception.TransactionNotFoundException;
+import com.central.transaction_service.exception.TransactionProcessingException;
 import com.central.transaction_service.kafka.KafkaEventProducer;
 import com.central.transaction_service.model.Transaction;
 import com.central.transaction_service.model.TransactionStatus;
 import com.central.transaction_service.repository.TransactionRepository;
 import com.central.transaction_service.repository.TransactionSpecifications;
 import com.central.transaction_service.utils.ServiceUtils;
+import org.openapitools.model.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.apache.commons.lang3.StringUtils;
-
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
-import lombok.extern.slf4j.Slf4j;
-import org.openapitools.model.StatusResponse;
-import org.openapitools.model.StatusUpdateRequest;
-import org.openapitools.model.TransactionRequest;
-import org.openapitools.model.TransactionResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
+
 
 import static com.central.transaction_service.utils.ServiceUtils.constructTransactionResponse;
 
@@ -52,13 +48,13 @@ public class TransactionServiceImpl implements TransactionService {
         transaction = transactionRepository.save(transaction);
         log.info("Transaction created successfully with Transaction ID: {}", transaction.getTransaction_id());
 
-        try {
-            kafkaEventProducer.sendSenderTransactionEvent(transaction.getTransaction_id().toString(), transaction);
-            log.info("Transaction event sent successfully with Transaction ID: {}", transaction.getTransaction_id());
-        } catch (Exception e) {
-            log.error("Failed to send transaction event: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to process transaction event");
-        }
+//        try {
+//            kafkaEventProducer.sendSenderTransactionEvent(transaction.getTransaction_id().toString(), transaction);
+//            log.info("Transaction event sent successfully with Transaction ID: {}", transaction.getTransaction_id());
+//        } catch (Exception e) {
+//            log.error("Failed to send transaction event: {}", e.getMessage(), e);
+//            throw new TransactionProcessingException("Failed to process transaction event", e);
+//        }
 
         return constructTransactionResponse(transaction);
     }
@@ -89,7 +85,7 @@ public class TransactionServiceImpl implements TransactionService {
                     spec = spec.and(TransactionSpecifications.hasStatus(transactionStatus));
                 } catch (IllegalArgumentException ex) {
                     log.warn("Invalid status value provided: {}", status);
-                    throw new IllegalArgumentException("Invalid status: " + status);
+                    throw new InvalidTransactionStatusException("Invalid status value: '" + status + "'. Please provide a valid status.");
                 }
             }
 
@@ -131,17 +127,16 @@ public class TransactionServiceImpl implements TransactionService {
         log.info("Fetching transaction details for transaction ID: {}", transactionId);
         return transactionRepository.findById(transactionId)
                 .map(ServiceUtils::constructTransactionResponse)
-                .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + transactionId));
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
     }
 
     @Override
     public TransactionResponse updateTransactionStatus(UUID transactionId, StatusUpdateRequest statusUpdateRequest) {
         // Implementation to update transaction status
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + transactionId));
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
         
-        // Update status logic here
-        // transaction.setStatus(...);
+        transaction.setStatus(TransactionStatus.valueOf(statusUpdateRequest.getStatus().name()));
         
         transaction = transactionRepository.save(transaction);
         return constructTransactionResponse(transaction);
@@ -151,10 +146,10 @@ public class TransactionServiceImpl implements TransactionService {
     public StatusResponse getTransactionStatus(UUID transactionId) {
         // Implementation to get transaction status
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + transactionId));
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
         
         StatusResponse statusResponse = new StatusResponse();
-        statusResponse.setStatus(StatusResponse.StatusEnum.valueOf(transaction.getStatus().name()));
+        statusResponse.setStatus(OverallStatusEnum.fromValue(transaction.getStatus().name()));
         return statusResponse;
     }
 }

@@ -2,9 +2,9 @@ package com.central.transaction_service.controller;
 
 import com.central.transaction_service.service.TransactionService;
 import io.micrometer.common.util.StringUtils;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.openapitools.model.*;
+import org.openapitools.api.TransactionsApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -12,14 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.openapitools.api.TransactionsApi;
-
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Slf4j

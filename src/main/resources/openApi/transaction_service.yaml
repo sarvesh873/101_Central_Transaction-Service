@@ -215,11 +215,7 @@ components:
         description:
           type: string
         status:
-          type: string
-          enum:
-            - PENDING
-            - COMPLETED
-            - FAILED
+          $ref: '#/components/schemas/OverallStatusEnum'
         createdAt:
           type: string
           format: date-time
@@ -238,17 +234,7 @@ components:
           type: string
           format: uuid
         status:
-          type: string
-          enum: 
-            - PENDING
-            - PROCESSING
-            - COMPLETED
-            - REFUNDED
-            - REFUND_INITIATED
-            - FAILED
-            - DECLINED
-            - CANCELLED
-            - EXPIRED
+          $ref: '#/components/schemas/OverallStatusEnum'
 
     StatusUpdateRequest:
       type: object
@@ -256,17 +242,21 @@ components:
         - status
       properties:
         status:
-          type: string
-          enum:
-            - PENDING
-            - PROCESSING
-            - COMPLETED
-            - REFUNDED
-            - REFUND_INITIATED
-            - FAILED
-            - DECLINED
-            - CANCELLED
-            - EXPIRED
+          $ref: '#/components/schemas/OverallStatusEnum'
+
+    OverallStatusEnum:
+      type: string
+      description: The comprehensive status of the transaction.
+      enum:
+        - PENDING
+        - PROCESSING
+        - COMPLETED
+        - REFUNDED
+        - REFUND_INITIATED
+        - FAILED
+        - DECLINED
+        - CANCELLED
+        - EXPIRED
 
     PaginationResponse:
       type: object

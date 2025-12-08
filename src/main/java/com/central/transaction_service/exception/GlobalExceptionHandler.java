@@ -6,9 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-
-import java.util.Map;
-
 /**
  * Global exception handler for the application.
  * Centralizes exception handling across all @Controller components.
@@ -32,12 +29,21 @@ public class GlobalExceptionHandler {
         return generateErrorResponse(errorCode, description, errorType, errorMessage, HttpStatus.BAD_REQUEST);
     }
 
-    /**
-     * Handles database integrity violations (e.g., unique constraint violations).
-     *
-     * @param ex the caught DataIntegrityViolationException
-     * @return ResponseEntity with HTTP 409 Conflict status and error message
-     */
+    @ExceptionHandler(TransactionNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTransactionNotFoundException(TransactionNotFoundException ex) {
+        return generateErrorResponse(404.01, "Transaction not found", "NOT_FOUND", ex.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(TransactionProcessingException.class)
+    public ResponseEntity<ErrorResponse> handleTransactionProcessingException(TransactionProcessingException ex) {
+        return generateErrorResponse(500.01, "Transaction processing failed", "INTERNAL_SERVER_ERROR", ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(InvalidTransactionStatusException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidTransactionStatusException(InvalidTransactionStatusException ex) {
+        return generateErrorResponse(400.01, "Invalid transaction status", "BAD_REQUEST", ex.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleConflict(DataIntegrityViolationException ex) {
         Double errorCode = 400.02;
