@@ -1,8 +1,6 @@
 package com.central.transaction_service.kafka;
 
 import com.central.transaction_service.model.Transaction;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.protobuf.Timestamp;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -44,7 +42,7 @@ public class KafkaEventProducer {
                 .setSenderId(transaction.getSenderId())
                 .setReceiverId(transaction.getReceiverId())
                 .setAmount(transaction.getAmount())
-                .setStatus(transaction.getStatus())
+                .setStatus(transaction.getStatus().name())
                 .setCreatedAt(Timestamp.newBuilder()
                         .setSeconds(transaction.getInitiatedAt().toEpochSecond(ZoneOffset.UTC))
                         .setNanos(0)

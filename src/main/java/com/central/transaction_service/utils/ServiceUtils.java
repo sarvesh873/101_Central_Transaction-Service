@@ -19,7 +19,7 @@ public final class ServiceUtils {
                 .receiverId(transaction.getReceiverId())
                 .amount(transaction.getAmount())
                 .description(transaction.getDescription())
-                .status(TransactionResponse.StatusEnum.fromValue(transaction.getStatus()))
+                .status(TransactionResponse.StatusEnum.fromValue(transaction.getStatus().name()))
                 .createdAt(transaction.getInitiatedAt().atZone(ZoneId.systemDefault()).toOffsetDateTime())
                 .updatedAt(transaction.getUpdatedAt().atZone(ZoneId.systemDefault()).toOffsetDateTime())
                 .build();

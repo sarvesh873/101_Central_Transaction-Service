@@ -38,8 +38,9 @@ public class Transaction {
 
     // --- Status and Timestamps ---
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    private TransactionStatus status;
 
     // Note: JPA will handle the mapping from snake_case in DB to camelCase here
     @Column(name = "initiated_at", nullable = false)
@@ -55,7 +56,7 @@ public class Transaction {
         this.initiatedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if(status == null){
-            status = "PENDING";
+            status = TransactionStatus.PENDING;
         }
     }
 
