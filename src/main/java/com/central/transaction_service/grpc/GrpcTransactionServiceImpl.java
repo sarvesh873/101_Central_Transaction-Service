@@ -1,8 +1,11 @@
 package com.central.transaction_service.grpc;
 
-import com.central.transaction.TransactionServiceGrpc;
-import com.central.transaction_service.service.TransactionService;
 import com.central.transaction.*;
+import com.central.transaction.TransactionServiceGrpc;
+import com.central.transaction_service.dto.*;
+import com.central.transaction_service.exception.InvalidTransactionStatusException;
+import com.central.transaction_service.exception.TransactionNotFoundException;
+import com.central.transaction_service.service.TransactionService;
 import com.google.protobuf.Timestamp;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
@@ -11,13 +14,12 @@ import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
-import org.openapitools.model.*;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.dao.DataIntegrityViolationException;
-import com.central.transaction_service.exception.*;
+
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -32,13 +34,8 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
     @Override
     public void createTransaction(TransactionRequestGRPC request, StreamObserver<TransactionResponseGRPC> responseObserver) {
         try {
-            TransactionRequest transactionRequest = new TransactionRequest();
-            transactionRequest.setSenderId(request.getSenderId());
-            transactionRequest.setReceiverId(request.getReceiverId());
-            transactionRequest.setAmount(request.getAmount());
-            transactionRequest.setDescription(request.getDescription());
-
-            TransactionResponse serviceResponse = transactionService.createTransaction(transactionRequest);
+            TransactionRequestDto requestDto = new GrpcTransactionRequestAdapter(request);
+            TransactionResponseDto serviceResponse = transactionService.createTransaction(requestDto);
             responseObserver.onNext(convertToTransactionResponseGRPC(serviceResponse));
             responseObserver.onCompleted();
         } catch (DataIntegrityViolationException e) {
@@ -66,7 +63,7 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
 
             Pageable pageable = PageRequest.of(page, request.getPageSize(), Sort.by(direction, sortByField));
 
-            Page<TransactionResponse> transactionPage = transactionService.getUserTransactions(
+            Page<TransactionResponseDto> transactionPage = transactionService.getUserTransactions(
                     request.getUserCode(),
                     request.hasStatusFilter() ? request.getStatusFilter().name() : null,
                     toOffsetDateTime(request.getFromDate()),
@@ -75,22 +72,28 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
             );
 
             GetUserTransactionsResponseGRPC.Builder responseBuilder = GetUserTransactionsResponseGRPC.newBuilder();
-            transactionPage.getContent().forEach(transactionResponse -> responseBuilder.addItems(convertToTransactionResponseGRPC(transactionResponse)));
+            
+            // Convert DTOs to gRPC responses
+            transactionPage.getContent().forEach(dto -> 
+                responseBuilder.addItems(convertToTransactionResponseGRPC(dto))
+            );
 
             // Create and set pagination response
-            PaginationResponse pagination = new PaginationResponse();
-            pagination.setTotalItems(transactionPage.getTotalElements());
-            pagination.setTotalPages(transactionPage.getTotalPages());
-            pagination.setCurrentPage(transactionPage.getNumber() + 1);
-            pagination.setPageSize(transactionPage.getSize());
-            pagination.setHasNext(transactionPage.hasNext());
-            pagination.setHasPrevious(transactionPage.hasPrevious());
-            responseBuilder.setPagination(convertToPaginationResponseGRPC(pagination));
+            PaginationResponseGRPC paginationResponse = PaginationResponseGRPC.newBuilder()
+                .setTotalItems(transactionPage.getTotalElements())
+                .setTotalPages(transactionPage.getTotalPages())
+                .setCurrentPage(transactionPage.getNumber() + 1)
+                .setPageSize(transactionPage.getSize())
+                .setHasNext(transactionPage.hasNext())
+                .setHasPrevious(transactionPage.hasPrevious())
+                .build();
+                
+            responseBuilder.setPagination(paginationResponse);
 
             responseObserver.onNext(responseBuilder.build());
             responseObserver.onCompleted();
         } catch (Exception e) {
-            log.error("Error getting user transactions: {}", e.getMessage());
+            log.error("Error getting user transactions: {}", e.getMessage(), e);
             handleError(responseObserver, Code.INTERNAL, "An unexpected error occurred while fetching user transactions.");
         }
     }
@@ -98,7 +101,7 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
     @Override
     public void getTransactionDetails(TransactionIdRequestGRPC request, StreamObserver<TransactionResponseGRPC> responseObserver) {
         try {
-            TransactionResponse serviceResponse = transactionService.getTransactionDetails(java.util.UUID.fromString(request.getTransactionId()));
+            TransactionResponseDto serviceResponse = transactionService.getTransactionDetails(java.util.UUID.fromString(request.getTransactionId()));
             responseObserver.onNext(convertToTransactionResponseGRPC(serviceResponse));
             responseObserver.onCompleted();
         } catch (TransactionNotFoundException e) {
@@ -108,7 +111,7 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
             log.warn("Invalid transaction ID format: {}", request.getTransactionId());
             handleError(responseObserver, Code.INVALID_ARGUMENT, "Invalid transaction ID format.");
         } catch (Exception e) {
-            log.error("Error getting transaction details: {}", e.getMessage());
+            log.error("Error getting transaction details: {}", e.getMessage(), e);
             handleError(responseObserver, Code.INTERNAL, "An unexpected error occurred while fetching transaction details.");
         }
     }
@@ -116,14 +119,16 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
     @Override
     public void updateTransactionStatus(UpdateTransactionRequestGRPC request, StreamObserver<TransactionResponseGRPC> responseObserver) {
         try {
-            StatusUpdateRequest statusUpdateRequest = new StatusUpdateRequest();
-            statusUpdateRequest.setStatus(OverallStatusEnum.valueOf(request.getUpdateData().getStatus().name()));
+            // Convert gRPC request to DTO using adapter
+            StatusUpdateRequestDto statusUpdateDto = new GrpcStatusUpdateRequestAdapter(request);
 
-            TransactionResponse serviceResponse = transactionService.updateTransactionStatus(
+            // Call service with DTO
+            TransactionResponseDto serviceResponse = transactionService.updateTransactionStatus(
                     java.util.UUID.fromString(request.getTransactionId()),
-                    statusUpdateRequest
+                    statusUpdateDto
             );
 
+            // Convert DTO to gRPC response
             responseObserver.onNext(convertToTransactionResponseGRPC(serviceResponse));
             responseObserver.onCompleted();
         } catch (TransactionNotFoundException e) {
@@ -133,10 +138,10 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
             log.warn("Invalid status update for transaction: {}", request.getTransactionId());
             handleError(responseObserver, Code.INVALID_ARGUMENT, e.getMessage());
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid argument for transaction update: {}", e.getMessage());
+            log.warn("Invalid argument for transaction update: {}", e.getMessage(), e);
             handleError(responseObserver, Code.INVALID_ARGUMENT, "Invalid transaction ID or status format.");
         } catch (Exception e) {
-            log.error("Error updating transaction status: {}", e.getMessage());
+            log.error("Error updating transaction status: {}", e.getMessage(), e);
             handleError(responseObserver, Code.INTERNAL, "An unexpected error occurred while updating transaction status.");
         }
     }
@@ -144,8 +149,12 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
     @Override
     public void getTransactionStatus(TransactionIdRequestGRPC request, StreamObserver<StatusResponseGRPC> responseObserver) {
         try {
-            StatusResponse serviceResponse = transactionService.getTransactionStatus(java.util.UUID.fromString(request.getTransactionId()));
+            // Get status using DTO
+            StatusResponseDto serviceResponse = transactionService.getTransactionStatus(
+                java.util.UUID.fromString(request.getTransactionId())
+            );
 
+            // Build gRPC response
             StatusResponseGRPC grpcResponse = StatusResponseGRPC.newBuilder()
                     .setTransactionId(serviceResponse.getTransactionId().toString())
                     .setStatus(convertToOverallStatusGRPC(serviceResponse.getStatus()))
@@ -160,13 +169,13 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
             log.warn("Invalid transaction ID format for status check: {}", request.getTransactionId());
             handleError(responseObserver, Code.INVALID_ARGUMENT, "Invalid transaction ID format.");
         } catch (Exception e) {
-            log.error("Error getting transaction status: {}", e.getMessage());
+            log.error("Error getting transaction status: {}", e.getMessage(), e);
             handleError(responseObserver, Code.INTERNAL, "An unexpected error occurred while fetching transaction status.");
         }
     }
 
     // Helper methods
-    private OverallStatusGRPC convertToOverallStatusGRPC(OverallStatusEnum statusEnum) {
+    private OverallStatusGRPC convertToOverallStatusGRPC(org.openapitools.model.OverallStatusEnum statusEnum) {
         if (statusEnum == null) {
             return OverallStatusGRPC.STATUS_UNSPECIFIED;
         }
@@ -178,37 +187,25 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
         }
     }
 
-    private TransactionResponseGRPC convertToTransactionResponseGRPC(TransactionResponse response) {
-        if (response == null) {
+    private TransactionResponseGRPC convertToTransactionResponseGRPC(TransactionResponseDto dto) {
+        if (dto == null) {
             return TransactionResponseGRPC.getDefaultInstance();
         }
 
         TransactionResponseGRPC.Builder builder = TransactionResponseGRPC.newBuilder();
-        if (response.getTransactionId() != null) builder.setTransactionId(response.getTransactionId().toString());
-        if (response.getSenderId() != null) builder.setSenderId(response.getSenderId());
-        if (response.getReceiverId() != null) builder.setReceiverId(response.getReceiverId());
-        if (response.getAmount() != null) builder.setAmount(response.getAmount());
-        if (response.getDescription() != null) builder.setDescription(response.getDescription());
-        if (response.getStatus() != null) builder.setStatus(convertToOverallStatusGRPC(response.getStatus()));
-        if (response.getCreatedAt() != null) builder.setCreatedAt(convertToTimestamp(response.getCreatedAt()));
-        if (response.getUpdatedAt() != null) builder.setUpdatedAt(convertToTimestamp(response.getUpdatedAt()));
+        if (dto.getTransactionId() != null) builder.setTransactionId(dto.getTransactionId().toString());
+        if (dto.getSenderId() != null) builder.setSenderId(dto.getSenderId());
+        if (dto.getReceiverId() != null) builder.setReceiverId(dto.getReceiverId());
+        if (dto.getAmount() != null) builder.setAmount(dto.getAmount());
+        if (dto.getDescription() != null) builder.setDescription(dto.getDescription());
+        if (dto.getStatus() != null) builder.setStatus(convertToOverallStatusGRPC(dto.getStatus()));
+        if (dto.getCreatedAt() != null) builder.setCreatedAt(convertToTimestamp(dto.getCreatedAt()));
+        if (dto.getUpdatedAt() != null) builder.setUpdatedAt(convertToTimestamp(dto.getUpdatedAt()));
 
         return builder.build();
     }
 
-    private PaginationResponseGRPC convertToPaginationResponseGRPC(PaginationResponse pagination) {
-        if (pagination == null) {
-            return PaginationResponseGRPC.getDefaultInstance();
-        }
-        PaginationResponseGRPC.Builder builder = PaginationResponseGRPC.newBuilder();
-        if (pagination.getTotalItems() != null) builder.setTotalItems(pagination.getTotalItems());
-        if (pagination.getTotalPages() != null) builder.setTotalPages(pagination.getTotalPages());
-        if (pagination.getCurrentPage() != null) builder.setCurrentPage(pagination.getCurrentPage());
-        if (pagination.getPageSize() != null) builder.setPageSize(pagination.getPageSize());
-        if (pagination.getHasNext() != null) builder.setHasNext(pagination.getHasNext());
-        if (pagination.getHasPrevious() != null) builder.setHasPrevious(pagination.getHasPrevious());
-        return builder.build();
-    }
+    // Pagination conversion is now handled inline in getUserTransactions
 
     private Timestamp convertToTimestamp(OffsetDateTime offsetDateTime) {
         if (offsetDateTime == null) {

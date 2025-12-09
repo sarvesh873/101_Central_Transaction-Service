@@ -8,8 +8,8 @@ import com.central.transaction_service.model.Transaction;
 import com.central.transaction_service.model.TransactionStatus;
 import com.central.transaction_service.repository.TransactionRepository;
 import com.central.transaction_service.repository.TransactionSpecifications;
-import com.central.transaction_service.utils.ServiceUtils;
-import org.openapitools.model.*;
+import com.central.transaction_service.dto.*;
+import org.openapitools.model.OverallStatusEnum;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -23,7 +23,6 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 
-import static com.central.transaction_service.utils.ServiceUtils.constructTransactionResponse;
 
 @Slf4j
 @Service
@@ -37,7 +36,7 @@ public class TransactionServiceImpl implements TransactionService {
     private KafkaEventProducer kafkaEventProducer;
 
     @Override
-    public TransactionResponse createTransaction(TransactionRequest transactionRequest) {
+    public TransactionResponseDto createTransaction(TransactionRequestDto transactionRequest) {
         Transaction transaction = Transaction.builder()
                 .senderId(transactionRequest.getSenderId())
                 .receiverId(transactionRequest.getReceiverId())
@@ -56,11 +55,11 @@ public class TransactionServiceImpl implements TransactionService {
 //            throw new TransactionProcessingException("Failed to process transaction event", e);
 //        }
 
-        return constructTransactionResponse(transaction);
+        return new TransactionResponseAdapter(transaction);
     }
 
     @Override
-    public Page<TransactionResponse> getUserTransactions(
+    public Page<TransactionResponseDto> getUserTransactions(
             String userCode,
             String status,
             OffsetDateTime fromDate,
@@ -111,7 +110,7 @@ public class TransactionServiceImpl implements TransactionService {
             log.debug("Found {} items", transactionsPage.getTotalElements());
 
             // Map the results to TransactionResponse objects
-            return transactionsPage.map(ServiceUtils::constructTransactionResponse);
+            return transactionsPage.map(TransactionResponseAdapter::new);
 
         } catch (IllegalArgumentException ex) {
             log.error("Error listing transactions: {}", ex.getMessage(), ex);
@@ -123,15 +122,15 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public TransactionResponse getTransactionDetails(UUID transactionId) {
+    public TransactionResponseDto getTransactionDetails(UUID transactionId) {
         log.info("Fetching transaction details for transaction ID: {}", transactionId);
         return transactionRepository.findById(transactionId)
-                .map(ServiceUtils::constructTransactionResponse)
+                .map(TransactionResponseAdapter::new)
                 .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
     }
 
     @Override
-    public TransactionResponse updateTransactionStatus(UUID transactionId, StatusUpdateRequest statusUpdateRequest) {
+    public TransactionResponseDto updateTransactionStatus(UUID transactionId, StatusUpdateRequestDto statusUpdateRequest) {
         // Implementation to update transaction status
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
@@ -139,17 +138,15 @@ public class TransactionServiceImpl implements TransactionService {
         transaction.setStatus(TransactionStatus.valueOf(statusUpdateRequest.getStatus().name()));
         
         transaction = transactionRepository.save(transaction);
-        return constructTransactionResponse(transaction);
+        return new TransactionResponseAdapter(transaction);
     }
 
     @Override
-    public StatusResponse getTransactionStatus(UUID transactionId) {
+    public StatusResponseDto getTransactionStatus(UUID transactionId) {
         // Implementation to get transaction status
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
         
-        StatusResponse statusResponse = new StatusResponse();
-        statusResponse.setStatus(OverallStatusEnum.fromValue(transaction.getStatus().name()));
-        return statusResponse;
+        return new StatusResponseAdapter(transaction);
     }
 }

@@ -1,5 +1,6 @@
 package com.central.transaction_service.controller;
 
+import com.central.transaction_service.dto.*;
 import com.central.transaction_service.service.TransactionService;
 import io.micrometer.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -14,8 +15,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -28,8 +32,29 @@ public class TransactionController implements TransactionsApi {
     @Override
     public ResponseEntity<TransactionResponse> createTransaction(TransactionRequest transactionRequest) {
         log.info("Creating new transaction");
-        TransactionResponse response = transactionService.createTransaction(transactionRequest);
+        // Convert OpenAPI model to DTO using adapter
+        TransactionRequestDto requestDto = new OpenApiTransactionRequestAdapter(transactionRequest);
+        // Call service with DTO
+        TransactionResponseDto responseDto = transactionService.createTransaction(requestDto);
+        // Convert DTO to OpenAPI model (assuming TransactionResponseAdapter has a toOpenApiModel() method)
+        TransactionResponse response = convertToTransactionResponse(responseDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    
+    private TransactionResponse convertToTransactionResponse(TransactionResponseDto dto) {
+        if (dto == null) {
+            return null;
+        }
+        TransactionResponse response = new TransactionResponse();
+        response.setTransactionId(dto.getTransactionId());
+        response.setSenderId(dto.getSenderId());
+        response.setReceiverId(dto.getReceiverId());
+        response.setAmount(dto.getAmount());
+        response.setDescription(dto.getDescription());
+        response.setStatus(dto.getStatus());
+        response.setCreatedAt(dto.getCreatedAt());
+        response.setUpdatedAt(dto.getUpdatedAt());
+        return response;
     }
 
     @Override
@@ -49,8 +74,8 @@ public class TransactionController implements TransactionsApi {
         // Create Pageable for pagination
         Pageable pageable = PageRequest.of(pageNumber, size, Sort.by(direction, sortField));
 
-        // Call service method
-        Page<TransactionResponse> holdsPage = transactionService.getUserTransactions(
+        // Call service method with DTOs
+        Page<TransactionResponseDto> holdsPage = transactionService.getUserTransactions(
                 userCode,
                 status,
                 fromDate,
@@ -67,9 +92,14 @@ public class TransactionController implements TransactionsApi {
             log.debug("First hold in page: {}", holdsPage.getContent().get(0));
         }
 
+        // Convert DTOs to OpenAPI models
+        List<TransactionResponse> transactionResponses = holdsPage.getContent().stream()
+                .map(this::convertToTransactionResponse)
+                .collect(Collectors.toList());
+
         // Create response
         GetUserTransactions200Response response = new GetUserTransactions200Response();
-        response.setItems(holdsPage.getContent());
+        response.setItems(transactionResponses);
         response.setPagination(new PaginationResponse()
                 .currentPage(holdsPage.getNumber() + 1) // Page numbers are 1-based in the response
                 .pageSize(holdsPage.getSize())
@@ -88,21 +118,31 @@ public class TransactionController implements TransactionsApi {
     @Override
     public ResponseEntity<TransactionResponse> getTransactionDetails(UUID transactionId) {
         log.info("Fetching details for transaction ID: {}", transactionId);
-        TransactionResponse response = transactionService.getTransactionDetails(transactionId);
+        TransactionResponseDto responseDto = transactionService.getTransactionDetails(transactionId);
+        TransactionResponse response = convertToTransactionResponse(responseDto);
         return ResponseEntity.ok(response);
     }
 
     @Override
     public ResponseEntity<TransactionResponse> updateTransactionStatus(UUID transactionId, StatusUpdateRequest statusUpdateRequest) {
         log.info("Updating status for transaction ID: {}", transactionId);
-        TransactionResponse response = transactionService.updateTransactionStatus(transactionId, statusUpdateRequest);
+        // Convert OpenAPI model to DTO using adapter
+        StatusUpdateRequestDto statusUpdateDto = new OpenApiStatusUpdateRequestAdapter(statusUpdateRequest);
+        // Call service with DTO
+        TransactionResponseDto responseDto = transactionService.updateTransactionStatus(transactionId, statusUpdateDto);
+        // Convert DTO back to OpenAPI model
+        TransactionResponse response = convertToTransactionResponse(responseDto);
         return ResponseEntity.ok(response);
     }
 
     @Override
     public ResponseEntity<StatusResponse> getTransactionStatus(UUID transactionId) {
         log.info("Fetching status for transaction ID: {}", transactionId);
-        StatusResponse response = transactionService.getTransactionStatus(transactionId);
+        StatusResponseDto responseDto = transactionService.getTransactionStatus(transactionId);
+        // Convert DTO to OpenAPI model
+        StatusResponse response = new StatusResponse();
+        response.setTransactionId(responseDto.getTransactionId());
+        response.setStatus(responseDto.getStatus());
         return ResponseEntity.ok(response);
     }
 }
