@@ -2,10 +2,10 @@ package com.central.transaction_service.dto;
 
 import org.openapitools.model.TransactionRequest;
 
-public class OpenApiTransactionRequestAdapter implements TransactionRequestDto {
+public class RestTransactionRequestAdapter implements TransactionRequestDto {
     private final TransactionRequest request;
 
-    public OpenApiTransactionRequestAdapter(TransactionRequest request) {
+    public RestTransactionRequestAdapter(TransactionRequest request) {
         this.request = request;
     }
 

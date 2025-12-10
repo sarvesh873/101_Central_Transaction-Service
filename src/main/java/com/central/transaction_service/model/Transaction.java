@@ -10,7 +10,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "central_transactions")
+@Table(name = "central_transactions",
+        indexes = {
+                @Index(name = "idx_transaction_sender", columnList = "sender_id"),
+                @Index(name = "idx_transaction_receiver", columnList = "receiver_id"),
+                @Index(name = "idx_transaction_id" , columnList = "transaction_id"),
+                @Index(name = "idx_transaction_created", columnList = "created_at")
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

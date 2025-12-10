@@ -33,28 +33,28 @@ public class TransactionController implements TransactionsApi {
     public ResponseEntity<TransactionResponse> createTransaction(TransactionRequest transactionRequest) {
         log.info("Creating new transaction");
         // Convert OpenAPI model to DTO using adapter
-        TransactionRequestDto requestDto = new OpenApiTransactionRequestAdapter(transactionRequest);
+        TransactionRequestDto requestDto = new RestTransactionRequestAdapter(transactionRequest);
         // Call service with DTO
         TransactionResponseDto responseDto = transactionService.createTransaction(requestDto);
         // Convert DTO to OpenAPI model (assuming TransactionResponseAdapter has a toOpenApiModel() method)
         TransactionResponse response = convertToTransactionResponse(responseDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
-    
+
     private TransactionResponse convertToTransactionResponse(TransactionResponseDto dto) {
         if (dto == null) {
             return null;
         }
-        TransactionResponse response = new TransactionResponse();
-        response.setTransactionId(dto.getTransactionId());
-        response.setSenderId(dto.getSenderId());
-        response.setReceiverId(dto.getReceiverId());
-        response.setAmount(dto.getAmount());
-        response.setDescription(dto.getDescription());
-        response.setStatus(dto.getStatus());
-        response.setCreatedAt(dto.getCreatedAt());
-        response.setUpdatedAt(dto.getUpdatedAt());
-        return response;
+        return TransactionResponse.builder()
+                .transactionId(dto.getTransactionId())
+                .senderId(dto.getSenderId())
+                .receiverId(dto.getReceiverId())
+                .amount(dto.getAmount())
+                .description(dto.getDescription())
+                .status(dto.getStatus())
+                .createdAt(dto.getCreatedAt())
+                .updatedAt(dto.getUpdatedAt())
+                .build();
     }
 
     @Override
@@ -98,16 +98,16 @@ public class TransactionController implements TransactionsApi {
                 .collect(Collectors.toList());
 
         // Create response
-        GetUserTransactions200Response response = new GetUserTransactions200Response();
-        response.setItems(transactionResponses);
-        response.setPagination(new PaginationResponse()
-                .currentPage(holdsPage.getNumber() + 1) // Page numbers are 1-based in the response
-                .pageSize(holdsPage.getSize())
-                .totalItems(holdsPage.getTotalElements())
-                .totalPages(holdsPage.getTotalPages())
-                .hasNext(holdsPage.hasNext())
-                .hasPrevious(holdsPage.hasPrevious())
-        );
+        GetUserTransactions200Response response = GetUserTransactions200Response.builder().
+                items(transactionResponses)
+                .pagination(new PaginationResponse()
+                    .currentPage(holdsPage.getNumber() + 1) // Page numbers are 1-based in the response
+                    .pageSize(holdsPage.getSize())
+                    .totalItems(holdsPage.getTotalElements())
+                    .totalPages(holdsPage.getTotalPages())
+                    .hasNext(holdsPage.hasNext())
+                    .hasPrevious(holdsPage.hasPrevious())
+                ).build();
 
         log.debug("Response items size: {}", response.getItems() != null ? response.getItems().size() : 0);
 
@@ -127,7 +127,7 @@ public class TransactionController implements TransactionsApi {
     public ResponseEntity<TransactionResponse> updateTransactionStatus(UUID transactionId, StatusUpdateRequest statusUpdateRequest) {
         log.info("Updating status for transaction ID: {}", transactionId);
         // Convert OpenAPI model to DTO using adapter
-        StatusUpdateRequestDto statusUpdateDto = new OpenApiStatusUpdateRequestAdapter(statusUpdateRequest);
+        StatusUpdateRequestDto statusUpdateDto = new RestStatusUpdateRequestAdapter(statusUpdateRequest);
         // Call service with DTO
         TransactionResponseDto responseDto = transactionService.updateTransactionStatus(transactionId, statusUpdateDto);
         // Convert DTO back to OpenAPI model
@@ -140,9 +140,10 @@ public class TransactionController implements TransactionsApi {
         log.info("Fetching status for transaction ID: {}", transactionId);
         StatusResponseDto responseDto = transactionService.getTransactionStatus(transactionId);
         // Convert DTO to OpenAPI model
-        StatusResponse response = new StatusResponse();
-        response.setTransactionId(responseDto.getTransactionId());
-        response.setStatus(responseDto.getStatus());
+        StatusResponse response = StatusResponse.builder()
+                        .transactionId(responseDto.getTransactionId())
+                        .status(responseDto.getStatus())
+                        .build();
         return ResponseEntity.ok(response);
     }
 }
