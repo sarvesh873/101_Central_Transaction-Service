@@ -3,6 +3,7 @@ package com.central.transaction_service.exception;
 import org.openapitools.model.ErrorResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import io.grpc.Status;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -51,6 +52,31 @@ public class GlobalExceptionHandler {
         String errorType = HttpStatus.CONFLICT.getReasonPhrase();
         String errorMessage = ex.getMostSpecificCause().getMessage();
         return generateErrorResponse(errorCode, description, errorType, errorMessage, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(GrpcServiceException.class)
+    public ResponseEntity<ErrorResponse> handleGrpcServiceException(GrpcServiceException ex) {
+        Double errorCode = 504.01; /*Wallet service errors*/
+        String description = ex.getLocalizedMessage();
+        HttpStatus httpStatus = convertStatus(ex.getStatus());
+        String errorType = httpStatus.getReasonPhrase();
+        String errorMessage = ex.getMessage();
+        return generateErrorResponse(errorCode, description, errorType, errorMessage, httpStatus);
+    }
+
+    private HttpStatus convertStatus(Status status) {
+        return switch (status.getCode()) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case INVALID_ARGUMENT -> HttpStatus.BAD_REQUEST;
+            case PERMISSION_DENIED -> HttpStatus.FORBIDDEN;
+            case UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
+            case FAILED_PRECONDITION -> HttpStatus.PRECONDITION_FAILED;
+            case ALREADY_EXISTS -> HttpStatus.CONFLICT;
+            case RESOURCE_EXHAUSTED -> HttpStatus.TOO_MANY_REQUESTS;
+            case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+            case DEADLINE_EXCEEDED -> HttpStatus.REQUEST_TIMEOUT;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
     }
 
     /**

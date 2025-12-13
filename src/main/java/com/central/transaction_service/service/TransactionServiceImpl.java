@@ -1,14 +1,17 @@
 package com.central.transaction_service.service;
 
+import com.central.transaction_service.exception.GrpcServiceException;
 import com.central.transaction_service.exception.InvalidTransactionStatusException;
 import com.central.transaction_service.exception.TransactionNotFoundException;
 import com.central.transaction_service.exception.TransactionProcessingException;
+import com.central.transaction_service.grpc.WalletServiceGrpcClient;
 import com.central.transaction_service.kafka.KafkaEventProducer;
 import com.central.transaction_service.model.Transaction;
 import com.central.transaction_service.model.TransactionStatus;
 import com.central.transaction_service.repository.TransactionRepository;
 import com.central.transaction_service.repository.TransactionSpecifications;
 import com.central.transaction_service.dto.*;
+import com.central.wallet.WalletResponseGRPC;
 import org.openapitools.model.OverallStatusEnum;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,11 +32,17 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public class TransactionServiceImpl implements TransactionService {
 
-    @Autowired
-    private TransactionRepository transactionRepository;
+    private final TransactionRepository transactionRepository;
 
-    @Autowired
-    private KafkaEventProducer kafkaEventProducer;
+    private final KafkaEventProducer kafkaEventProducer;
+
+    private final WalletServiceGrpcClient walletServiceGrpcClient;
+
+    public TransactionServiceImpl(TransactionRepository transactionRepository, KafkaEventProducer kafkaEventProducer, WalletServiceGrpcClient walletServiceGrpcClient) {
+        this.transactionRepository = transactionRepository;
+        this.kafkaEventProducer = kafkaEventProducer;
+        this.walletServiceGrpcClient = walletServiceGrpcClient;
+    }
 
     @Override
     public TransactionResponseDto createTransaction(TransactionRequestDto transactionRequest) {
@@ -46,6 +55,24 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
         transaction = transactionRepository.save(transaction);
         log.info("Transaction created successfully with Transaction ID: {}", transaction.getTransaction_id());
+
+        try {
+            log.info("Fetching wallet details for receiver ID: {}", transactionRequest.getReceiverId());
+            WalletResponseGRPC walletResponseGRPC = walletServiceGrpcClient.getUserWallet(transactionRequest.getReceiverId());
+            log.info("Successfully fetched wallet details for receiver ID: {}", walletResponseGRPC.getUserCode());
+            log.info("Successfully fetched wallet details: {}", walletResponseGRPC);
+        }
+        catch (GrpcServiceException e){
+            log.error("Error while fetching GRPC wallet details for receiver ID: {}. Error: {}",
+                    transactionRequest.getReceiverId(), e.getMessage(), e);
+            throw e;
+        }
+        catch (Exception e) {
+            log.error("Error while fetching wallet details for receiver ID: {}. Error: {}", 
+                transactionRequest.getReceiverId(), e.getMessage(), e);
+            throw new TransactionProcessingException("Failed to process wallet details for receiver: " +
+                transactionRequest.getReceiverId(), e);
+        }
 
 //        try {
 //            kafkaEventProducer.sendSenderTransactionEvent(transaction.getTransaction_id().toString(), transaction);

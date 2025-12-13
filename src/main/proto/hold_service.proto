@@ -1,0 +1,157 @@
+syntax = "proto3";
+
+package com.central.wallet;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.central.wallet";
+option java_outer_classname = "HoldServiceProto";
+
+// --- Service Definition ---
+
+service HoldService {
+  // Places a hold on funds in a wallet, reducing the available balance.
+  rpc PlaceHold (PlaceHoldRequestGRPC) returns (HoldResponseGRPC);
+
+  // Captures funds from an existing hold and moves them to the wallet balance.
+  rpc CaptureHold (CaptureHoldRequestGRPC) returns (HoldResponseGRPC);
+
+  // Releases a hold and returns funds to the available balance.
+  rpc ReleaseHold (ReleaseHoldRequestGRPC) returns (HoldResponseGRPC);
+
+  // Retrieves details of a specific hold.
+  rpc GetHold (GetHoldRequestGRPC) returns (HoldResponseGRPC);
+
+  // Retrieves a paginated list of holds with optional filtering.
+  rpc ListHolds (ListHoldsRequestGRPC) returns (ListHoldsResponseGRPC);
+
+  // Extends the expiration time of an existing hold.
+  rpc ExtendHold (ExtendHoldRequestGRPC) returns (HoldResponseGRPC);
+
+  // Adjusts the amount of an existing hold (increase or decrease).
+  rpc AdjustHold (AdjustHoldRequestGRPC) returns (HoldResponseGRPC);
+}
+
+// --- Request/Response Messages ---
+
+message PlaceHoldRequestGRPC {
+  string user_code = 1;
+  double amount = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  string currency = 4;
+  string transaction_id = 5; // External reference ID
+  string description = 6;
+}
+
+message HoldResponseGRPC {
+  enum HoldStatusGRPC {
+    UNKNOWN = 0;
+    ACTIVE = 1;
+    CAPTURED = 2;
+    RELEASED = 3;
+    EXPIRED = 4;
+  }
+
+  string hold_id = 1;
+  string transaction_id = 2;
+  string user_code = 3;
+  HoldStatusGRPC status = 4;
+  double original_amount = 5;
+  double remaining_amount = 6;
+  double captured_amount = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string description = 11;
+}
+
+message CaptureHoldRequestGRPC {
+  string hold_id = 1;
+  string transaction_id = 2; // External reference ID for the capture
+  string description = 3;
+  bool release_remainder = 4; // Whether to release any remaining held amount after capture.
+}
+
+message ReleaseHoldRequestGRPC {
+  string hold_id = 1;
+  string reason = 2;
+  map<string, string> metadata = 3;
+}
+
+message GetHoldRequestGRPC {
+  string hold_id = 1;
+}
+
+message ExtendHoldRequestGRPC {
+  string hold_id = 1;
+  google.protobuf.Timestamp new_expires_at = 2;
+  string reason = 3;
+}
+
+message AdjustHoldRequestGRPC {
+  string hold_id = 1;
+  double new_amount = 2;
+  string reason = 3;
+}
+
+message ListHoldsRequestGRPC {
+  // Optional: Filter by user code (exact match)
+  string user_code = 1;
+  // Optional: Filter by status (ACTIVE, CAPTURED, RELEASED, EXPIRED)
+  string status = 2;
+  // Optional: Filter by currency code (exact match)
+  string currency = 3;
+  // Optional: Filter by creation date range (inclusive)
+  google.protobuf.Timestamp from_date = 4;
+  // Optional: Filter by creation date range (inclusive)
+  google.protobuf.Timestamp to_date = 5;
+  // Optional: Pagination and sorting parameters
+  PaginationRequestGRPC pagination = 6;
+  // Optional: Filter by transaction ID (exact match)
+  string transaction_id = 7;
+  // Optional: Filter by minimum amount (inclusive)
+  double min_amount = 8;
+  // Optional: Filter by maximum amount (inclusive)
+  double max_amount = 9;
+  // Optional: Filter by description (case-insensitive contains)
+  string description = 10;
+  // Optional: If true, only return expired holds
+  bool expired_only = 11;
+  // Optional: If true, only return active holds (not expired, not captured, not released)
+  bool active_only = 12;
+}
+
+message ListHoldsResponseGRPC {
+  repeated HoldResponseGRPC items = 1;
+  PaginationResponseGRPC pagination = 2;
+}
+
+
+// Request structure for pagination and sorting.
+message PaginationRequestGRPC {
+  // The page number to retrieve (1-based).
+  int32 page = 1;
+  // Number of items per page (default 20).
+  int32 page_size = 2;
+  // Field to sort by (e.g., 'createdAt').
+  string sort_by = 3;
+  // Sort in descending order (default true).
+  bool sort_descending = 4;
+}
+
+// Response structure for pagination metadata.
+message PaginationResponseGRPC {
+  // Total number of items across all pages.
+  int64 total_items = 1;
+  // Total number of pages.
+  int32 total_pages = 2;
+  // Current page number (1-based).
+  int32 current_page = 3;
+  // Number of items per page.
+  int32 page_size = 4;
+  // Whether there is a next page.
+  bool has_next = 5;
+  // Whether there is a previous page.
+  bool has_previous = 6;
+}
