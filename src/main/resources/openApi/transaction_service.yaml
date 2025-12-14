@@ -178,6 +178,65 @@ paths:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
 
+  /transactions/{transactionId}/verify-otp:
+    post:
+      summary: Verify OTP for a transaction
+      description: Verifies the OTP for a pending transaction and processes it if valid
+      operationId: verifyTransactionOtp
+      tags:
+        - Transactions
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the transaction to verify OTP for
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - otpCode
+              properties:
+                otpCode:
+                  type: string
+                  description: The OTP code to verify
+                  minLength: 6
+                  maxLength: 6
+                  example: "123456"
+      responses:
+        '200':
+          description: OTP verified successfully and transaction is being processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        '400':
+          description: |
+            - Invalid OTP format
+            - Transaction not in OTP_SENT status
+            - OTP verification failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     TransactionRequest:
@@ -257,6 +316,9 @@ components:
         - DECLINED
         - CANCELLED
         - EXPIRED
+        - OTP_SENT
+        - OTP_VERIFIED
+        - OTP_VERIFICATION_FAILED
 
     PaginationResponse:
       type: object

@@ -11,6 +11,7 @@ public enum TransactionStatus {
     // Initial states
     PENDING("Pending", "Transaction has been created but not yet processed"),
     PROCESSING("Processing", "Transaction is being processed"),
+    DEPOSITED("Deposited", "Transaction has been deposited to the receiver's wallet"),
     
     // Success states
     COMPLETED("Completed", "Transaction was successfully completed"),
@@ -18,12 +19,18 @@ public enum TransactionStatus {
     
     // Intermediate states
     REFUND_INITIATED("Refund Initiated", "Refund process has been initiated"),
+    REFUND_FAILED("Refund Failed", "Refund process has failed"),
     
     // Final failure states
     FAILED("Failed", "Transaction failed to process"),
     DECLINED("Declined", "Transaction was declined by business rules"),
     CANCELLED("Cancelled", "Transaction was cancelled by the user"),
-    EXPIRED("Expired", "Transaction expired before completion");
+    EXPIRED("Expired", "Transaction expired before completion"),
+    PLACED_HOLD("Placed Hold", "Transaction hold has been placed"),
+    CANCELLED_HOLD("Cancelled Hold", "Transaction hold has been cancelled"),
+    OTP_VERIFIED("OTP Verified", "OTP has been verified successfully"),
+    OTP_VERIFICATION_FAILED("OTP Verification Failed", "OTP verification failed"),
+    OTP_SENT("OTP Sent", "OTP has been sent to the user");
 
     private final String displayName;
     private final String description;

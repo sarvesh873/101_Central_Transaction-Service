@@ -42,6 +42,12 @@ public class Transaction {
     @Column(name = "description", nullable = true)
     private String description;
 
+    @Column(nullable = true)
+    private String holdId;
+
+    @Column(nullable = true)
+    private String otpKey;
+
     // --- Status and Timestamps ---
 
     @Enumerated(EnumType.STRING)

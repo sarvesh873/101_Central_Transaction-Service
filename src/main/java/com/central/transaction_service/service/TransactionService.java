@@ -13,21 +13,23 @@ import java.util.UUID;
 @Service
 public interface TransactionService {
 
-        TransactionResponseDto createTransaction(TransactionRequestDto transactionRequest);
+    TransactionResponseDto createTransaction(TransactionRequestDto transactionRequest);
 
-        Page<TransactionResponseDto> getUserTransactions(
-            String userCode,
-            String status,
-            OffsetDateTime fromDate,
-            OffsetDateTime toDate,
-            Pageable pageable
+    Page<TransactionResponseDto> getUserTransactions(
+        String userCode,
+        String status,
+        OffsetDateTime fromDate,
+        OffsetDateTime toDate,
+        Pageable pageable
 
     );
 
-        TransactionResponseDto getTransactionDetails(UUID transactionId);
+    TransactionResponseDto getTransactionDetails(UUID transactionId);
 
-        TransactionResponseDto updateTransactionStatus(UUID transactionId, StatusUpdateRequestDto statusUpdateRequest);
+    TransactionResponseDto updateTransactionStatus(UUID transactionId, StatusUpdateRequestDto statusUpdateRequest);
 
-        StatusResponseDto getTransactionStatus(UUID transactionId);
+    StatusResponseDto getTransactionStatus(UUID transactionId);
+
+    TransactionResponseDto verifyTransactionOtp(UUID transactionId, String otpCode);
 
 }

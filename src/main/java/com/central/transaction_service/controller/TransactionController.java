@@ -3,6 +3,9 @@ package com.central.transaction_service.controller;
 import com.central.transaction_service.dto.*;
 import com.central.transaction_service.service.TransactionService;
 import io.micrometer.common.util.StringUtils;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.openapitools.model.*;
 import org.openapitools.api.TransactionsApi;
@@ -13,6 +16,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -144,6 +149,15 @@ public class TransactionController implements TransactionsApi {
                         .transactionId(responseDto.getTransactionId())
                         .status(responseDto.getStatus())
                         .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<TransactionResponse> verifyTransactionOtp(UUID transactionId,
+                                                                    VerifyTransactionOtpRequest verifyTransactionOtpRequest) {
+        log.info("Verifying OTP for transaction ID: {}", transactionId);
+        TransactionResponseDto responseDto = transactionService.verifyTransactionOtp(transactionId, verifyTransactionOtpRequest.getOtpCode());
+        TransactionResponse response = convertToTransactionResponse(responseDto);
         return ResponseEntity.ok(response);
     }
 }

@@ -23,6 +23,9 @@ enum OverallStatusGRPC {
   DECLINED = 7;
   CANCELLED = 8;
   EXPIRED = 9;
+  OTP_SENT = 10;
+  OTP_VERIFIED = 11;
+  OTP_VERIFICATION_FAILED = 12;
 }
 
 // ===================================================================
@@ -102,6 +105,12 @@ message PaginationResponseGRPC {
   bool has_previous = 6;
 }
 
+// Request for POST /transactions/{transactionId}/verify-otp
+message VerifyTransactionOtpRequestGRPC {
+  string transaction_id = 1; // Maps to {transactionId} path param (UUID)
+  string otp_code = 2;
+}
+
 // Response for GET /transactions/user (combines list and pagination)
 message GetUserTransactionsResponseGRPC {
   repeated TransactionResponseGRPC items = 1;
@@ -129,4 +138,8 @@ service TransactionService {
 
   // 5. GET /transactions/{transactionId}/status (Get status of a transaction)
   rpc GetTransactionStatus (TransactionIdRequestGRPC) returns (StatusResponseGRPC);
+
+  // 6. POST /transactions/{transactionId}/verify-otp (Verify OTP for a transaction)
+  rpc VerifyTransactionOtp (VerifyTransactionOtpRequestGRPC) returns (TransactionResponseGRPC);
+
 }

@@ -5,6 +5,7 @@ import com.central.transaction.TransactionServiceGrpc;
 import com.central.transaction_service.dto.*;
 import com.central.transaction_service.exception.InvalidTransactionStatusException;
 import com.central.transaction_service.exception.TransactionNotFoundException;
+import com.central.transaction_service.exception.TransactionProcessingException;
 import com.central.transaction_service.service.TransactionService;
 import com.google.protobuf.Timestamp;
 import com.google.rpc.Code;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.Sort;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 @Slf4j
 @GrpcService
@@ -173,6 +175,41 @@ public class GrpcTransactionServiceImpl extends TransactionServiceGrpc.Transacti
             handleError(responseObserver, Code.INTERNAL, "An unexpected error occurred while fetching transaction status.");
         }
     }
+
+    @Override
+    public void verifyTransactionOtp(VerifyTransactionOtpRequestGRPC request,
+                                     StreamObserver<TransactionResponseGRPC> responseObserver) {
+        try {
+            // 1. Parse transaction ID
+            UUID transactionId = UUID.fromString(request.getTransactionId());
+            String otpCode = request.getOtpCode();
+
+            log.info("GRPC: Verifying OTP for transaction ID: {}", transactionId);
+
+            // 2. Call the service layer
+            TransactionResponseDto responseDto = transactionService.verifyTransactionOtp(transactionId, otpCode);
+
+            // 3. Convert and send response
+            responseObserver.onNext(convertToTransactionResponseGRPC(responseDto));
+            responseObserver.onCompleted();
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid transaction ID format: {}", request.getTransactionId(), e);
+            handleError(responseObserver, Code.INVALID_ARGUMENT, "Invalid transaction ID format");
+        } catch (TransactionNotFoundException e) {
+            log.warn("Transaction not found: {}", request.getTransactionId(), e);
+            handleError(responseObserver, Code.NOT_FOUND, e.getMessage());
+        } catch (TransactionProcessingException e) {
+            log.warn("OTP verification failed for transaction: {}", request.getTransactionId(), e);
+            handleError(responseObserver, Code.FAILED_PRECONDITION, e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during OTP verification for transaction: {}",
+                    request.getTransactionId(), e);
+            handleError(responseObserver, Code.INTERNAL,
+                    "An unexpected error occurred during OTP verification");
+        }
+    }
+
 
     // Helper methods
     private OverallStatusGRPC convertToOverallStatusGRPC(org.openapitools.model.OverallStatusEnum statusEnum) {
