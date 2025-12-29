@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package com.central.transaction;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.central.transaction";
+option java_outer_classname = "TransactionServiceProto";
+// ===================================================================
+// ENUMS
+// ===================================================================
+
+// Comprehensive status list used for updates and general status tracking.
+enum OverallStatusGRPC {
+  STATUS_UNSPECIFIED = 0;
+  PENDING = 1;
+  PROCESSING = 2;
+  COMPLETED = 3;
+  REFUNDED = 4;
+  REFUND_INITIATED = 5;
+  FAILED = 6;
+  DECLINED = 7;
+  CANCELLED = 8;
+  EXPIRED = 9;
+  OTP_SENT = 10;
+  OTP_VERIFIED = 11;
+  OTP_VERIFICATION_FAILED = 12;
+}
+
+// ===================================================================
+// REQUEST MESSAGES
+// ===================================================================
+
+// Request for POST /transactions
+message TransactionRequestGRPC {
+  string sender_id = 1;
+  string receiver_id = 2;
+  double amount = 3;
+  string description = 4;
+}
+
+// Request for PUT /transactions/{transactionId}
+message StatusUpdateRequestGRPC {
+  OverallStatusGRPC status = 1;
+}
+
+// Helper message for RPCs requiring only the transaction ID (path parameter)
+message TransactionIdRequestGRPC {
+  string transaction_id = 1; // Maps to {transactionId} path param (UUID)
+}
+
+// Helper message for RPCs requiring the transaction ID and a status update body
+message UpdateTransactionRequestGRPC {
+  string transaction_id = 1; // Maps to {transactionId} path param
+  StatusUpdateRequestGRPC update_data = 2;
+}
+
+// Request for GET /transactions/user (maps to query parameters)
+message GetUserTransactionsRequestGRPC {
+  string user_code = 1;
+
+  // Optional filters (using the dedicated filter enum)
+  optional OverallStatusGRPC status_filter = 2;
+
+  // Pagination parameters
+  int32 page = 3;             // default 1, minimum 1
+  int32 page_size = 4;        // default 20, maximum 100
+
+  // Optional date range filters (using google.protobuf.Timestamp)
+  optional google.protobuf.Timestamp from_date = 5;
+  optional google.protobuf.Timestamp to_date = 6;
+
+  // Sorting parameters
+  optional string sort_by = 7;
+  optional bool sort_desc = 8; // default true
+}
+
+// ===================================================================
+// RESPONSE MESSAGES
+// ===================================================================
+
+message TransactionResponseGRPC {
+  string transaction_id = 1; // UUID
+  string sender_id = 2;
+  string receiver_id = 3;
+  double amount = 4;
+  string description = 5;
+  OverallStatusGRPC status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message StatusResponseGRPC {
+  string transaction_id = 1; // UUID
+  OverallStatusGRPC status = 2;
+}
+
+message PaginationResponseGRPC {
+  int64 total_items = 1;
+  int32 total_pages = 2;
+  int32 current_page = 3;
+  int32 page_size = 4;
+  bool has_next = 5;
+  bool has_previous = 6;
+}
+
+// Request for POST /transactions/{transactionId}/verify-otp
+message VerifyTransactionOtpRequestGRPC {
+  string transaction_id = 1; // Maps to {transactionId} path param (UUID)
+  string otp_code = 2;
+}
+
+// Response for GET /transactions/user (combines list and pagination)
+message GetUserTransactionsResponseGRPC {
+  repeated TransactionResponseGRPC items = 1;
+  PaginationResponseGRPC pagination = 2;
+}
+
+
+// ===================================================================
+// SERVICE DEFINITION
+// ===================================================================
+
+service TransactionService {
+
+  // 1. POST /transactions (Create a new transaction)
+  rpc CreateTransaction (TransactionRequestGRPC) returns (TransactionResponseGRPC);
+
+  // 2. GET /transactions/user (Get all transactions for a user)
+  rpc GetUserTransactions (GetUserTransactionsRequestGRPC) returns (GetUserTransactionsResponseGRPC);
+
+  // 3. GET /transactions/{transactionId} (Get a specific transaction by ID)
+  rpc GetTransactionDetails (TransactionIdRequestGRPC) returns (TransactionResponseGRPC);
+
+  // 4. PUT /transactions/{transactionId} (Update transaction status)
+  rpc UpdateTransactionStatus (UpdateTransactionRequestGRPC) returns (TransactionResponseGRPC);
+
+  // 5. GET /transactions/{transactionId}/status (Get status of a transaction)
+  rpc GetTransactionStatus (TransactionIdRequestGRPC) returns (StatusResponseGRPC);
+
+  // 6. POST /transactions/{transactionId}/verify-otp (Verify OTP for a transaction)
+  rpc VerifyTransactionOtp (VerifyTransactionOtpRequestGRPC) returns (TransactionResponseGRPC);
+
+}

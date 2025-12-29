@@ -1,0 +1,366 @@
+openapi: 3.0.3
+info:
+  title: Central Transaction Service API
+  version: 1.0.0
+  description: API for logging and managing user activity transactions
+servers:
+  - url: http://localhost:8080/transaction_service/api # The base path is added here
+paths:
+  /transactions:
+    # 1. POST /transactions (Create a new transaction)
+    post:
+      summary: Create a new transaction
+      operationId: createTransaction
+      tags:
+        - Transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '201':
+          description: Transaction created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid request data
+
+  /transactions/user:
+    # 2. GET /transactions/user (Get all transactions for a user)
+    get:
+      summary: Get all transactions for a user
+      operationId: getUserTransactions
+      tags:
+        - Transactions
+      parameters:
+        - name: userCode
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ ACTIVE, CAPTURED, RELEASED, EXPIRED ]
+          description: Filter by hold status.
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter holds created after this date.
+        - name: toDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter holds created before this date.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination.
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of items per page.
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [ createdAt, expiresAt, amount, status ]
+            default: createdAt
+          description: Field to sort by.
+        - name: sortDesc
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Sort in descending order.
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransactionResponse'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationResponse'
+
+  /transactions/{transactionId}:
+    # 3. GET /transactions/{transactionId} (Get a specific transaction by ID)
+    get:
+      summary: Get details of a specific transaction
+      operationId: getTransactionDetails
+      tags:
+        - Transactions
+      parameters:
+        - in: path
+          name: transactionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Transaction not found
+
+    # 4. PUT /transactions/{transactionId} (Update transaction status)
+    put:
+      summary: Update transaction status
+      operationId: updateTransactionStatus
+      tags:
+        - Transactions
+      parameters:
+        - in: path
+          name: transactionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdateRequest'
+      responses:
+        '200':
+          description: Transaction updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Transaction not found
+
+  /transactions/{transactionId}/status:
+    # 5. GET /transactions/{transactionId}/status (Get status of a transaction)
+    get:
+      summary: Get status of a transaction
+      operationId: getTransactionStatus
+      tags:
+        - Transactions
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Transaction status response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+  /transactions/{transactionId}/verify-otp:
+    post:
+      summary: Verify OTP for a transaction
+      description: Verifies the OTP for a pending transaction and processes it if valid
+      operationId: verifyTransactionOtp
+      tags:
+        - Transactions
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the transaction to verify OTP for
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - otpCode
+              properties:
+                otpCode:
+                  type: string
+                  description: The OTP code to verify
+                  minLength: 6
+                  maxLength: 6
+                  example: "123456"
+      responses:
+        '200':
+          description: OTP verified successfully and transaction is being processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        '400':
+          description: |
+            - Invalid OTP format
+            - Transaction not in OTP_SENT status
+            - OTP verification failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    TransactionRequest:
+      type: object
+      required:
+        - senderId
+        - receiverId
+        - amount
+      properties:
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        amount:
+          type: number
+          format: double
+        description:
+          type: string
+          description: A human-readable description or note.
+
+    TransactionResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+          description: The unique identifier for the transaction.
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        amount:
+          type: number
+          format: double
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/OverallStatusEnum'
+        createdAt:
+          type: string
+          format: date-time
+          x-java-type: java.time.LocalDateTime
+          description: The timestamp when the transaction was created.
+        updatedAt:
+          type: string
+          format: date-time
+          x-java-type: java.time.LocalDateTime
+          description: The timestamp when the transaction was updated.
+
+    StatusResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OverallStatusEnum'
+
+    StatusUpdateRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/OverallStatusEnum'
+
+    OverallStatusEnum:
+      type: string
+      description: The comprehensive status of the transaction.
+      enum:
+        - PENDING
+        - PROCESSING
+        - COMPLETED
+        - REFUNDED
+        - REFUND_INITIATED
+        - FAILED
+        - DECLINED
+        - CANCELLED
+        - EXPIRED
+        - OTP_SENT
+        - OTP_VERIFIED
+        - OTP_VERIFICATION_FAILED
+
+    PaginationResponse:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+          format: int64
+          description: Total number of items across all pages.
+        totalPages:
+          type: integer
+          format: int32
+          description: Total number of pages.
+        currentPage:
+          type: integer
+          format: int32
+          description: Current page number (1-based).
+        pageSize:
+          type: integer
+          format: int32
+          description: Number of items per page.
+        hasNext:
+          type: boolean
+          description: Whether there is a next page.
+        hasPrevious:
+          type: boolean
+          description: Whether there is a previous page.
+
+    ErrorResponse:
+      type: object
+      x-lombok-annotations:
+        - "@lombok.Builder"
+      properties:
+        errorCode:
+          type: number
+          format: double
+          description: Numeric error code
+        description:
+          type: string
+          description: Human-readable description providing more details about the error
+        errorType:
+          type: string
+          description: Categorization of the error (e.g., VALIDATION_ERROR, AUTHENTICATION_FAILED)
+        errorMessage:
+          type: string
+          description: A brief message summarizing the error condition

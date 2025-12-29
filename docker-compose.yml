@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+
+  # 3. YOUR SPRING BOOT APPLICATION SERVICE
+  transaction_service:
+    # Instruct Docker Compose to build the image using the current directory's Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # Assign a name to the container
+    container_name: central-transaction-service
+
+    # This allows you to access the API at http://localhost:8080
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+        # Set environment variables for the Spring application
+    environment:
+      # Database connection configuration for Spring Boot
+      SPRING_DATASOURCE_URL: jdbc:postgresql://central-db:5432/central
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: password123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_SQL_INIT_MODE: always
+      TRANSACTION_SERVICE_GRPC_PORT: 9090
+      wallet.service.host: central-wallet-service # <--- CHANGE THIS
+      wallet.service.port: 9095          # <--- CHANGE THIS
+      # Note: The database hostname is 'db' because that is the service name below
+
+    networks:
+      - shared_network_alias
+
+# --- CUSTOM NETWORK DEFINITION ---
+networks:
+  shared_network_alias:
+    # Use the name of the network created in the other file
+    name: shared_central_network
+    # CRITICAL: Tell Docker Compose this network is managed externally
+    external: true

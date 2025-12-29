@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package com.central.wallet;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.central.wallet";
+option java_outer_classname = "WalletServiceProto";
+
+// --- Service Definition ---
+
+service WalletService {
+
+  // Retrieves the current balance and associated user information for a specific userCode.
+  rpc GetUserWallet (GetWalletRequestGRPC) returns (WalletResponseGRPC);
+
+  // Increases the wallet balance and initiates a ledger entry.
+  rpc DepositFunds (WalletTransactionRequestGRPC) returns (WalletTransactionResponseGRPC);
+
+  // Decreases the wallet balance, initiates a ledger entry, and checks for insufficient funds.
+  rpc WithdrawFunds (WalletTransactionRequestGRPC) returns (WalletTransactionResponseGRPC);
+}
+
+// --- Request/Response Messages ---
+
+message GetWalletRequestGRPC {
+  // The unique code of the user whose wallet is being fetched.
+  string user_code = 1;
+}
+
+message WalletResponseGRPC {
+  // Unique identifier of the wallet.
+  int64 wallet_id = 1;
+  // The unique user identifier.
+  string user_code = 2;
+  // Current ledger balance in the wallet (including holds).
+  double balance = 3;
+  // The status of the wallet.
+  string status = 4;
+  // The currency code (e.g., USD, EUR).
+  string currency = 5;
+  // Current available balance in the wallet (excluding active holds).
+  double available_balance = 6;
+  // Timestamp when the wallet was created.
+  google.protobuf.Timestamp created_at = 7;
+
+  // Snapshot data replicated from the User Service.
+  optional string username = 8;
+  optional string email = 9;
+  optional string phone_number = 10;
+}
+
+// Used for both deposit and withdrawal requests.
+message WalletTransactionRequestGRPC {
+  // The user code associated with the wallet.
+  string user_code = 1;
+  // The monetary amount to transfer.
+  double amount = 2;
+  // The currency code (e.g., USD, EUR).
+  string currency = 3;
+}
+
+message WalletTransactionResponseGRPC {
+  enum TransactionTypeGRPC {
+    UNKNOWN_TYPE = 0;
+    DEPOSIT = 1;
+    WITHDRAWAL = 2;
+  }
+  enum TransactionStatusGRPC {
+    UNKNOWN_STATUS = 0;
+    COMPLETED = 1;
+    FAILED = 2;
+    DECLINED = 3;
+    EXPIRED = 4;
+  }
+
+  int64 wallet_id = 1;
+  TransactionTypeGRPC transaction_type = 2;
+  double processed_amount = 3;
+  double new_balance = 4;
+  double new_available_balance = 5;
+  string user_code = 6;
+  TransactionStatusGRPC status = 7;
+
+  // Snapshot data for context
+  optional string username = 8;
+  optional string email = 9;
+  optional string phone_number = 10;
+}

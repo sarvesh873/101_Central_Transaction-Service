@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+package transaction.events;
+option java_multiple_files = true;
+
+
+message TransactionEvent {
+    string transaction_id = 1;
+    string sender_id = 2;
+    string receiver_id = 3;
+    double amount = 4;
+    string status = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+}
